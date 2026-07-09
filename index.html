@@ -1,0 +1,3817 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오늘 뭐 먹지? - 메뉴 추천 챗봇</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --primary: #5b5bd6;
+      --primary-dark: #4545b5;
+      --text: #202124;
+      --muted: #737584;
+      --bot: #eef0ff;
+      --user: #5b5bd6;
+      --border: #e6e7ef;
+      --shadow: 0 16px 40px rgba(33, 36, 50, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      color: var(--text);
+      font-family: Pretendard, "Noto Sans KR", -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, #ececff 0, transparent 35%),
+        radial-gradient(circle at bottom right, #fff0dc 0, transparent 35%),
+        var(--bg);
+    }
+
+    .app {
+      width: min(100%, 820px);
+      height: min(92vh, 850px);
+      min-height: 650px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      overflow: hidden;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 26px;
+      background: linear-gradient(135deg, #5b5bd6, #8f8fff);
+      border-radius: 15px;
+      box-shadow: 0 8px 18px rgba(91, 91, 214, 0.25);
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .title-wrap p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .count-badge {
+      display: inline-block;
+      margin-left: 5px;
+      padding: 2px 7px;
+      color: var(--primary-dark);
+      font-size: 11px;
+      font-weight: 800;
+      background: #ededff;
+      border-radius: 999px;
+    }
+
+    .reset-btn {
+      margin-left: auto;
+      padding: 9px 12px;
+      color: var(--muted);
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+    }
+
+    .reset-btn:hover {
+      color: var(--primary);
+      border-color: #c8c8f5;
+    }
+
+    .meal-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border);
+      scrollbar-width: none;
+    }
+
+    .meal-tabs::-webkit-scrollbar { display: none; }
+
+    .meal-tabs button,
+    .quick-replies button {
+      flex-shrink: 0;
+      padding: 8px 12px;
+      color: #4d4fb0;
+      font-weight: 750;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid #d9daf2;
+      border-radius: 999px;
+      transition: 0.15s ease;
+    }
+
+    .meal-tabs button:hover,
+    .quick-replies button:hover {
+      background: #f4f4ff;
+      border-color: #bfc0ef;
+      transform: translateY(-1px);
+    }
+
+    .chat {
+      overflow-y: auto;
+      padding: 20px;
+      scroll-behavior: smooth;
+      background:
+        linear-gradient(rgba(255,255,255,.86), rgba(255,255,255,.86)),
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 29px,
+          rgba(91,91,214,.025) 30px
+        );
+    }
+
+    .message-row {
+      display: flex;
+      margin-bottom: 13px;
+      animation: pop .2s ease-out;
+    }
+
+    .message-row.user { justify-content: flex-end; }
+
+    .message {
+      max-width: min(88%, 620px);
+      padding: 12px 15px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: keep-all;
+      border-radius: 17px;
+      font-size: 15px;
+    }
+
+    .message.bot {
+      background: var(--bot);
+      border-bottom-left-radius: 5px;
+    }
+
+    .message.user {
+      color: white;
+      background: var(--user);
+      border-bottom-right-radius: 5px;
+    }
+
+    .menu-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .menu-card {
+      padding: 14px;
+      background: #fff;
+      border: 1px solid #dfe2ff;
+      border-radius: 14px;
+    }
+
+    .menu-card strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--primary-dark);
+      font-size: 17px;
+    }
+
+    .menu-meta {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .tag {
+      padding: 3px 7px;
+      color: #595a69;
+      font-size: 11px;
+      background: #f4f4f8;
+      border-radius: 999px;
+    }
+
+    .matched {
+      margin-top: 9px;
+      color: #5052af;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .quick-replies {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 5px 0 16px;
+    }
+
+    .composer {
+      padding: 14px;
+      background: #fff;
+      border-top: 1px solid var(--border);
+    }
+
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 7px 7px 15px;
+      background: #fafaff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      color: var(--text);
+      font-size: 15px;
+      background: transparent;
+      border: 0;
+      outline: 0;
+    }
+
+    .send-btn {
+      width: 42px;
+      height: 42px;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--primary);
+      border: 0;
+      border-radius: 13px;
+    }
+
+    .send-btn:hover { background: var(--primary-dark); }
+
+    .hint {
+      margin: 8px 3px 0;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 0; }
+      .app {
+        width: 100%;
+        height: 100vh;
+        min-height: 100vh;
+        border: 0;
+        border-radius: 0;
+      }
+      header { padding: 14px; }
+      .chat { padding: 16px 13px; }
+      .message { max-width: 92%; }
+      .title-wrap p { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="logo" aria-hidden="true">🍽️</div>
+      <div class="title-wrap">
+        <h1>오늘 뭐 먹지?</h1>
+        <p>아침부터 안주까지 단어 하나로 추천
+          <span class="count-badge">178가지 메뉴</span>
+        </p>
+      </div>
+      <button class="reset-btn" id="resetBtn" type="button">처음부터</button>
+    </header>
+
+    <nav class="meal-tabs" aria-label="식사 시간 빠른 선택">
+      <button type="button" data-word="아침">🌅 아침</button>
+      <button type="button" data-word="점심">☀️ 점심</button>
+      <button type="button" data-word="저녁">🌆 저녁</button>
+      <button type="button" data-word="야식">🌙 야식</button>
+      <button type="button" data-word="간식">🍰 간식</button>
+      <button type="button" data-word="안주">🍺 안주</button>
+    </nav>
+
+    <section class="chat" id="chat" aria-live="polite"></section>
+
+    <footer class="composer">
+      <form class="input-wrap" id="chatForm">
+        <input
+          id="userInput"
+          type="text"
+          autocomplete="off"
+          placeholder="단어만 입력해도 돼요: 매운, 국물, 맥주, 달달, 고기"
+          aria-label="메시지 입력"
+        />
+        <button class="send-btn" type="submit" aria-label="전송">➜</button>
+      </form>
+      <div class="hint">완전한 문장이 아니어도 됩니다. 여러 단어도 가능해요: “저녁 매운 국물”</div>
+    </footer>
+  </main>
+
+  <script>
+    const menus = [
+  {
+    "name": "토스트",
+    "category": "브런치",
+    "price": 5000,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "빵",
+      "간단",
+      "바삭"
+    ]
+  },
+  {
+    "name": "프렌치토스트",
+    "category": "브런치",
+    "price": 9000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "빵",
+      "부드러운"
+    ]
+  },
+  {
+    "name": "에그샌드위치",
+    "category": "브런치",
+    "price": 6500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심"
+    ],
+    "tags": [
+      "계란",
+      "빵",
+      "간단"
+    ]
+  },
+  {
+    "name": "햄치즈샌드위치",
+    "category": "브런치",
+    "price": 7000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "간식"
+    ],
+    "tags": [
+      "햄",
+      "치즈",
+      "빵"
+    ]
+  },
+  {
+    "name": "베이글 크림치즈",
+    "category": "브런치",
+    "price": 6500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "빵",
+      "치즈",
+      "담백"
+    ]
+  },
+  {
+    "name": "아보카도 토스트",
+    "category": "브런치",
+    "price": 11000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심"
+    ],
+    "tags": [
+      "건강",
+      "채소",
+      "빵"
+    ]
+  },
+  {
+    "name": "오믈렛",
+    "category": "브런치",
+    "price": 10000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심"
+    ],
+    "tags": [
+      "계란",
+      "부드러운",
+      "든든"
+    ]
+  },
+  {
+    "name": "스크램블에그",
+    "category": "브런치",
+    "price": 7000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침"
+    ],
+    "tags": [
+      "계란",
+      "부드러운",
+      "간단"
+    ]
+  },
+  {
+    "name": "팬케이크",
+    "category": "브런치",
+    "price": 10000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "빵",
+      "디저트"
+    ]
+  },
+  {
+    "name": "와플",
+    "category": "브런치",
+    "price": 8500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "바삭",
+      "디저트"
+    ]
+  },
+  {
+    "name": "그래놀라 요거트",
+    "category": "브런치",
+    "price": 7500,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "건강",
+      "요거트",
+      "가벼운"
+    ]
+  },
+  {
+    "name": "오트밀",
+    "category": "브런치",
+    "price": 6500,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침"
+    ],
+    "tags": [
+      "건강",
+      "따뜻한",
+      "가벼운"
+    ]
+  },
+  {
+    "name": "과일볼",
+    "category": "브런치",
+    "price": 8500,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "과일",
+      "상큼",
+      "건강"
+    ]
+  },
+  {
+    "name": "시리얼과 우유",
+    "category": "브런치",
+    "price": 4500,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침"
+    ],
+    "tags": [
+      "간단",
+      "우유",
+      "가벼운"
+    ]
+  },
+  {
+    "name": "죽",
+    "category": "한식",
+    "price": 8000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심",
+      "야식"
+    ],
+    "tags": [
+      "따뜻한",
+      "부드러운",
+      "속편한"
+    ]
+  },
+  {
+    "name": "전복죽",
+    "category": "한식",
+    "price": 13000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심"
+    ],
+    "tags": [
+      "해산물",
+      "보양",
+      "부드러운"
+    ]
+  },
+  {
+    "name": "김치볶음밥",
+    "category": "한식",
+    "price": 9000,
+    "spicy": 3,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "밥",
+      "매콤",
+      "든든"
+    ]
+  },
+  {
+    "name": "계란간장밥",
+    "category": "한식",
+    "price": 5000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "야식"
+    ],
+    "tags": [
+      "계란",
+      "밥",
+      "간단"
+    ]
+  },
+  {
+    "name": "누룽지",
+    "category": "한식",
+    "price": 6000,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "야식"
+    ],
+    "tags": [
+      "구수",
+      "따뜻한",
+      "속편한"
+    ]
+  },
+  {
+    "name": "콩나물국밥",
+    "category": "한식",
+    "price": 9000,
+    "spicy": 2,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "해장",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "북엇국",
+    "category": "한식",
+    "price": 9000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심"
+    ],
+    "tags": [
+      "국물",
+      "해장",
+      "담백"
+    ]
+  },
+  {
+    "name": "미역국",
+    "category": "한식",
+    "price": 8500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "국물",
+      "담백",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "김치찌개",
+    "category": "한식",
+    "price": 9500,
+    "spicy": 3,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "매콤",
+      "밥"
+    ]
+  },
+  {
+    "name": "된장찌개",
+    "category": "한식",
+    "price": 9000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "국물",
+      "구수",
+      "집밥"
+    ]
+  },
+  {
+    "name": "순두부찌개",
+    "category": "한식",
+    "price": 9500,
+    "spicy": 3,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "매콤",
+      "부드러운"
+    ]
+  },
+  {
+    "name": "부대찌개",
+    "category": "한식",
+    "price": 11000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "국물",
+      "햄",
+      "푸짐"
+    ]
+  },
+  {
+    "name": "청국장",
+    "category": "한식",
+    "price": 10000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "구수",
+      "국물",
+      "집밥"
+    ]
+  },
+  {
+    "name": "제육볶음",
+    "category": "한식",
+    "price": 11000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "매콤",
+      "밥"
+    ]
+  },
+  {
+    "name": "불고기",
+    "category": "한식",
+    "price": 13000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "고기",
+      "달달",
+      "밥"
+    ]
+  },
+  {
+    "name": "비빔밥",
+    "category": "한식",
+    "price": 10000,
+    "spicy": 2,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "채소",
+      "밥",
+      "균형"
+    ]
+  },
+  {
+    "name": "돌솥비빔밥",
+    "category": "한식",
+    "price": 12000,
+    "spicy": 2,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "밥",
+      "바삭",
+      "채소"
+    ]
+  },
+  {
+    "name": "잡채밥",
+    "category": "한식",
+    "price": 10500,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "당면",
+      "밥",
+      "달달"
+    ]
+  },
+  {
+    "name": "오징어볶음",
+    "category": "한식",
+    "price": 12000,
+    "spicy": 4,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "해산물",
+      "매운",
+      "밥"
+    ]
+  },
+  {
+    "name": "닭갈비",
+    "category": "한식",
+    "price": 14000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "매콤",
+      "철판"
+    ]
+  },
+  {
+    "name": "쭈꾸미볶음",
+    "category": "한식",
+    "price": 15000,
+    "spicy": 4,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "해산물",
+      "매운",
+      "볶음"
+    ]
+  },
+  {
+    "name": "낙지볶음",
+    "category": "한식",
+    "price": 15000,
+    "spicy": 4,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "해산물",
+      "매운",
+      "밥"
+    ]
+  },
+  {
+    "name": "갈비탕",
+    "category": "한식",
+    "price": 15000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "고기",
+      "국물",
+      "보양"
+    ]
+  },
+  {
+    "name": "설렁탕",
+    "category": "한식",
+    "price": 12000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "고기",
+      "해장"
+    ]
+  },
+  {
+    "name": "곰탕",
+    "category": "한식",
+    "price": 13000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "국물",
+      "고기",
+      "담백"
+    ]
+  },
+  {
+    "name": "육개장",
+    "category": "한식",
+    "price": 11000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "매콤",
+      "고기"
+    ]
+  },
+  {
+    "name": "삼계탕",
+    "category": "한식",
+    "price": 17000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "보양",
+      "닭",
+      "국물"
+    ]
+  },
+  {
+    "name": "돼지국밥",
+    "category": "한식",
+    "price": 10000,
+    "spicy": 1,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "고기",
+      "든든"
+    ]
+  },
+  {
+    "name": "순대국",
+    "category": "한식",
+    "price": 10000,
+    "spicy": 2,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "해장",
+      "든든"
+    ]
+  },
+  {
+    "name": "감자탕",
+    "category": "한식",
+    "price": 14000,
+    "spicy": 3,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "국물",
+      "고기",
+      "푸짐"
+    ]
+  },
+  {
+    "name": "뼈해장국",
+    "category": "한식",
+    "price": 11000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "야식"
+    ],
+    "tags": [
+      "국물",
+      "해장",
+      "고기"
+    ]
+  },
+  {
+    "name": "김밥",
+    "category": "한식",
+    "price": 4500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "간단",
+      "밥",
+      "휴대"
+    ]
+  },
+  {
+    "name": "참치김밥",
+    "category": "한식",
+    "price": 5500,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심",
+      "간식"
+    ],
+    "tags": [
+      "참치",
+      "밥",
+      "간단"
+    ]
+  },
+  {
+    "name": "떡볶이",
+    "category": "분식",
+    "price": 6000,
+    "spicy": 3,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "매콤",
+      "떡",
+      "분식"
+    ]
+  },
+  {
+    "name": "라볶이",
+    "category": "분식",
+    "price": 7500,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "매콤",
+      "면",
+      "떡"
+    ]
+  },
+  {
+    "name": "순대",
+    "category": "분식",
+    "price": 6500,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "분식",
+      "쫄깃",
+      "소금"
+    ]
+  },
+  {
+    "name": "튀김",
+    "category": "분식",
+    "price": 6000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "바삭",
+      "튀김",
+      "분식"
+    ]
+  },
+  {
+    "name": "칼국수",
+    "category": "한식",
+    "price": 9500,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "국물",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "수제비",
+    "category": "한식",
+    "price": 9500,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "국물",
+      "쫄깃",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "잔치국수",
+    "category": "한식",
+    "price": 8000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "간식"
+    ],
+    "tags": [
+      "면",
+      "국물",
+      "가벼운"
+    ]
+  },
+  {
+    "name": "비빔국수",
+    "category": "한식",
+    "price": 8500,
+    "spicy": 3,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "매콤",
+      "새콤"
+    ]
+  },
+  {
+    "name": "냉면",
+    "category": "한식",
+    "price": 11000,
+    "spicy": 1,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "시원",
+      "깔끔"
+    ]
+  },
+  {
+    "name": "콩국수",
+    "category": "한식",
+    "price": 11000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "고소",
+      "시원"
+    ]
+  },
+  {
+    "name": "보쌈",
+    "category": "한식",
+    "price": 25000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "쌈",
+      "소주"
+    ]
+  },
+  {
+    "name": "족발",
+    "category": "한식",
+    "price": 30000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "쫄깃",
+      "소주"
+    ]
+  },
+  {
+    "name": "삼겹살",
+    "category": "한식",
+    "price": 18000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "구이",
+      "소주"
+    ]
+  },
+  {
+    "name": "닭한마리",
+    "category": "한식",
+    "price": 16000,
+    "spicy": 1,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "국물",
+      "푸짐"
+    ]
+  },
+  {
+    "name": "돈가스",
+    "category": "일식",
+    "price": 12000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "바삭",
+      "고기",
+      "튀김"
+    ]
+  },
+  {
+    "name": "치즈돈가스",
+    "category": "일식",
+    "price": 14000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "치즈",
+      "바삭",
+      "고기"
+    ]
+  },
+  {
+    "name": "가츠동",
+    "category": "일식",
+    "price": 11000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "밥",
+      "고기",
+      "달달"
+    ]
+  },
+  {
+    "name": "규동",
+    "category": "일식",
+    "price": 10500,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "소고기",
+      "밥",
+      "간단"
+    ]
+  },
+  {
+    "name": "오야코동",
+    "category": "일식",
+    "price": 10500,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "닭",
+      "계란",
+      "밥"
+    ]
+  },
+  {
+    "name": "카레라이스",
+    "category": "일식",
+    "price": 9500,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "카레",
+      "밥",
+      "향긋"
+    ]
+  },
+  {
+    "name": "카레우동",
+    "category": "일식",
+    "price": 10500,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "카레",
+      "면",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "우동",
+    "category": "일식",
+    "price": 9000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "면",
+      "국물",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "냉모밀",
+    "category": "일식",
+    "price": 10000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "시원",
+      "깔끔"
+    ]
+  },
+  {
+    "name": "라멘",
+    "category": "일식",
+    "price": 11000,
+    "spicy": 2,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "면",
+      "국물",
+      "진한"
+    ]
+  },
+  {
+    "name": "초밥",
+    "category": "일식",
+    "price": 16000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "생선",
+      "밥",
+      "깔끔"
+    ]
+  },
+  {
+    "name": "연어초밥",
+    "category": "일식",
+    "price": 17000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "연어",
+      "생선",
+      "부드러운"
+    ]
+  },
+  {
+    "name": "회덮밥",
+    "category": "일식",
+    "price": 14000,
+    "spicy": 2,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "생선",
+      "밥",
+      "새콤"
+    ]
+  },
+  {
+    "name": "사케동",
+    "category": "일식",
+    "price": 15000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "연어",
+      "밥",
+      "깔끔"
+    ]
+  },
+  {
+    "name": "텐동",
+    "category": "일식",
+    "price": 14000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "튀김",
+      "밥",
+      "바삭"
+    ]
+  },
+  {
+    "name": "오코노미야키",
+    "category": "일식",
+    "price": 12000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "간식",
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "철판",
+      "달달",
+      "맥주"
+    ]
+  },
+  {
+    "name": "타코야키",
+    "category": "일식",
+    "price": 7000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "문어",
+      "간식",
+      "맥주"
+    ]
+  },
+  {
+    "name": "야키소바",
+    "category": "일식",
+    "price": 11000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "면",
+      "볶음",
+      "달달"
+    ]
+  },
+  {
+    "name": "짜장면",
+    "category": "중식",
+    "price": 8000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "면",
+      "달달",
+      "가성비"
+    ]
+  },
+  {
+    "name": "간짜장",
+    "category": "중식",
+    "price": 9500,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "볶음",
+      "진한"
+    ]
+  },
+  {
+    "name": "짬뽕",
+    "category": "중식",
+    "price": 10000,
+    "spicy": 4,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "면",
+      "국물",
+      "매운"
+    ]
+  },
+  {
+    "name": "백짬뽕",
+    "category": "중식",
+    "price": 11000,
+    "spicy": 1,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "국물",
+      "해산물"
+    ]
+  },
+  {
+    "name": "볶음밥",
+    "category": "중식",
+    "price": 9000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "밥",
+      "볶음",
+      "간단"
+    ]
+  },
+  {
+    "name": "마파두부덮밥",
+    "category": "중식",
+    "price": 10000,
+    "spicy": 3,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "두부",
+      "매콤",
+      "밥"
+    ]
+  },
+  {
+    "name": "잡채밥",
+    "category": "중식",
+    "price": 10500,
+    "spicy": 1,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "당면",
+      "밥",
+      "볶음"
+    ]
+  },
+  {
+    "name": "탕수육",
+    "category": "중식",
+    "price": 20000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "튀김",
+      "고기",
+      "달달"
+    ]
+  },
+  {
+    "name": "꿔바로우",
+    "category": "중식",
+    "price": 22000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "바삭",
+      "고기",
+      "새콤"
+    ]
+  },
+  {
+    "name": "깐풍기",
+    "category": "중식",
+    "price": 22000,
+    "spicy": 3,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "매콤",
+      "튀김"
+    ]
+  },
+  {
+    "name": "양장피",
+    "category": "중식",
+    "price": 25000,
+    "spicy": 2,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "해산물",
+      "겨자",
+      "술안주"
+    ]
+  },
+  {
+    "name": "고추잡채",
+    "category": "중식",
+    "price": 23000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "피망",
+      "술안주"
+    ]
+  },
+  {
+    "name": "마라탕",
+    "category": "중식",
+    "price": 13000,
+    "spicy": 5,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "매운",
+      "얼얼",
+      "국물"
+    ]
+  },
+  {
+    "name": "마라샹궈",
+    "category": "중식",
+    "price": 18000,
+    "spicy": 5,
+    "heavy": 5,
+    "vegetarian": true,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "매운",
+      "얼얼",
+      "볶음"
+    ]
+  },
+  {
+    "name": "훠궈",
+    "category": "중식",
+    "price": 25000,
+    "spicy": 4,
+    "heavy": 5,
+    "vegetarian": true,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "국물",
+      "매운",
+      "푸짐"
+    ]
+  },
+  {
+    "name": "딤섬",
+    "category": "중식",
+    "price": 14000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "간식"
+    ],
+    "tags": [
+      "만두",
+      "부드러운",
+      "간단"
+    ]
+  },
+  {
+    "name": "군만두",
+    "category": "중식",
+    "price": 7000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "만두",
+      "바삭",
+      "맥주"
+    ]
+  },
+  {
+    "name": "유린기",
+    "category": "중식",
+    "price": 22000,
+    "spicy": 2,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "새콤",
+      "바삭"
+    ]
+  },
+  {
+    "name": "토마토 파스타",
+    "category": "양식",
+    "price": 14000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "토마토",
+      "새콤"
+    ]
+  },
+  {
+    "name": "크림 파스타",
+    "category": "양식",
+    "price": 15000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "크리미",
+      "치즈"
+    ]
+  },
+  {
+    "name": "오일 파스타",
+    "category": "양식",
+    "price": 15000,
+    "spicy": 2,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "마늘",
+      "깔끔"
+    ]
+  },
+  {
+    "name": "로제 파스타",
+    "category": "양식",
+    "price": 16000,
+    "spicy": 2,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "크리미",
+      "매콤"
+    ]
+  },
+  {
+    "name": "라자냐",
+    "category": "양식",
+    "price": 17000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "치즈",
+      "고기",
+      "오븐"
+    ]
+  },
+  {
+    "name": "리조또",
+    "category": "양식",
+    "price": 16000,
+    "spicy": 1,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "밥",
+      "크리미",
+      "치즈"
+    ]
+  },
+  {
+    "name": "스테이크",
+    "category": "양식",
+    "price": 30000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "소고기",
+      "구이",
+      "와인"
+    ]
+  },
+  {
+    "name": "함박스테이크",
+    "category": "양식",
+    "price": 15000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "고기",
+      "소스",
+      "밥"
+    ]
+  },
+  {
+    "name": "치킨스테이크",
+    "category": "양식",
+    "price": 16000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "닭",
+      "구이",
+      "단백질"
+    ]
+  },
+  {
+    "name": "피자",
+    "category": "양식",
+    "price": 20000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "치즈",
+      "빵",
+      "맥주"
+    ]
+  },
+  {
+    "name": "페퍼로니 피자",
+    "category": "양식",
+    "price": 22000,
+    "spicy": 1,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "치즈",
+      "고기",
+      "맥주"
+    ]
+  },
+  {
+    "name": "고르곤졸라 피자",
+    "category": "양식",
+    "price": 22000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "치즈",
+      "달달",
+      "와인"
+    ]
+  },
+  {
+    "name": "햄버거",
+    "category": "패스트푸드",
+    "price": 10000,
+    "spicy": 1,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "빵",
+      "고기",
+      "빠른"
+    ]
+  },
+  {
+    "name": "치즈버거",
+    "category": "패스트푸드",
+    "price": 11000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "치즈",
+      "고기",
+      "빵"
+    ]
+  },
+  {
+    "name": "핫도그",
+    "category": "패스트푸드",
+    "price": 6000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "간식",
+      "점심",
+      "야식"
+    ],
+    "tags": [
+      "소시지",
+      "빵",
+      "간단"
+    ]
+  },
+  {
+    "name": "샌드위치",
+    "category": "브런치",
+    "price": 8500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심",
+      "간식"
+    ],
+    "tags": [
+      "빵",
+      "채소",
+      "가벼운"
+    ]
+  },
+  {
+    "name": "클럽샌드위치",
+    "category": "브런치",
+    "price": 11000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "아침",
+      "점심"
+    ],
+    "tags": [
+      "빵",
+      "고기",
+      "채소"
+    ]
+  },
+  {
+    "name": "샐러드",
+    "category": "가벼운식사",
+    "price": 11000,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "건강",
+      "채소",
+      "가벼운"
+    ]
+  },
+  {
+    "name": "닭가슴살 샐러드",
+    "category": "가벼운식사",
+    "price": 12500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "건강",
+      "닭",
+      "단백질"
+    ]
+  },
+  {
+    "name": "포케",
+    "category": "가벼운식사",
+    "price": 13500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "건강",
+      "채소",
+      "밥"
+    ]
+  },
+  {
+    "name": "쌀국수",
+    "category": "아시안",
+    "price": 12000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "면",
+      "국물",
+      "향긋"
+    ]
+  },
+  {
+    "name": "분짜",
+    "category": "아시안",
+    "price": 14000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "고기",
+      "면",
+      "상큼"
+    ]
+  },
+  {
+    "name": "팟타이",
+    "category": "아시안",
+    "price": 13000,
+    "spicy": 2,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "면",
+      "새콤달콤",
+      "땅콩"
+    ]
+  },
+  {
+    "name": "나시고렝",
+    "category": "아시안",
+    "price": 13000,
+    "spicy": 2,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "밥",
+      "볶음",
+      "향신료"
+    ]
+  },
+  {
+    "name": "카오팟",
+    "category": "아시안",
+    "price": 12000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "밥",
+      "볶음",
+      "새우"
+    ]
+  },
+  {
+    "name": "똠얌꿍",
+    "category": "아시안",
+    "price": 15000,
+    "spicy": 4,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "국물",
+      "매운",
+      "새콤"
+    ]
+  },
+  {
+    "name": "인도커리와 난",
+    "category": "아시안",
+    "price": 15000,
+    "spicy": 2,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "점심",
+      "저녁"
+    ],
+    "tags": [
+      "카레",
+      "빵",
+      "향신료"
+    ]
+  },
+  {
+    "name": "케밥",
+    "category": "아시안",
+    "price": 11000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "점심",
+      "저녁",
+      "야식"
+    ],
+    "tags": [
+      "고기",
+      "빵",
+      "간단"
+    ]
+  },
+  {
+    "name": "붕어빵",
+    "category": "간식",
+    "price": 3000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "달달",
+      "팥",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "호떡",
+    "category": "간식",
+    "price": 2500,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "달달",
+      "쫄깃",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "군고구마",
+    "category": "간식",
+    "price": 4000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "달달",
+      "건강",
+      "따뜻한"
+    ]
+  },
+  {
+    "name": "감자튀김",
+    "category": "간식",
+    "price": 5000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "바삭",
+      "감자",
+      "맥주"
+    ]
+  },
+  {
+    "name": "치즈볼",
+    "category": "간식",
+    "price": 6000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "치즈",
+      "쫄깃",
+      "달달"
+    ]
+  },
+  {
+    "name": "나초",
+    "category": "간식",
+    "price": 9000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "바삭",
+      "치즈",
+      "맥주"
+    ]
+  },
+  {
+    "name": "팝콘",
+    "category": "간식",
+    "price": 5000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "바삭",
+      "영화",
+      "간단"
+    ]
+  },
+  {
+    "name": "크루아상",
+    "category": "간식",
+    "price": 4500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "빵",
+      "버터",
+      "바삭"
+    ]
+  },
+  {
+    "name": "소금빵",
+    "category": "간식",
+    "price": 4000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "빵",
+      "버터",
+      "짭짤"
+    ]
+  },
+  {
+    "name": "도넛",
+    "category": "간식",
+    "price": 4000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "빵",
+      "디저트"
+    ]
+  },
+  {
+    "name": "케이크",
+    "category": "디저트",
+    "price": 7000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "디저트",
+      "커피"
+    ]
+  },
+  {
+    "name": "티라미수",
+    "category": "디저트",
+    "price": 7500,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "커피",
+      "달달",
+      "부드러운"
+    ]
+  },
+  {
+    "name": "치즈케이크",
+    "category": "디저트",
+    "price": 7500,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "치즈",
+      "달달",
+      "부드러운"
+    ]
+  },
+  {
+    "name": "마카롱",
+    "category": "디저트",
+    "price": 3500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "디저트",
+      "선물"
+    ]
+  },
+  {
+    "name": "쿠키",
+    "category": "디저트",
+    "price": 3500,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "바삭",
+      "커피"
+    ]
+  },
+  {
+    "name": "브라우니",
+    "category": "디저트",
+    "price": 5000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "초콜릿",
+      "달달",
+      "진한"
+    ]
+  },
+  {
+    "name": "초콜릿",
+    "category": "디저트",
+    "price": 3000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "초콜릿",
+      "간단"
+    ]
+  },
+  {
+    "name": "아이스크림",
+    "category": "디저트",
+    "price": 5000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "시원",
+      "달달",
+      "디저트"
+    ]
+  },
+  {
+    "name": "빙수",
+    "category": "디저트",
+    "price": 12000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식"
+    ],
+    "tags": [
+      "시원",
+      "달달",
+      "팥"
+    ]
+  },
+  {
+    "name": "요거트 아이스크림",
+    "category": "디저트",
+    "price": 7000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "상큼",
+      "시원",
+      "달달"
+    ]
+  },
+  {
+    "name": "과일주스",
+    "category": "음료",
+    "price": 6000,
+    "spicy": 0,
+    "heavy": 1,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "과일",
+      "상큼",
+      "시원"
+    ]
+  },
+  {
+    "name": "스무디",
+    "category": "음료",
+    "price": 7000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "아침",
+      "간식"
+    ],
+    "tags": [
+      "과일",
+      "시원",
+      "건강"
+    ]
+  },
+  {
+    "name": "버블티",
+    "category": "음료",
+    "price": 6000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식"
+    ],
+    "tags": [
+      "달달",
+      "쫄깃",
+      "음료"
+    ]
+  },
+  {
+    "name": "후라이드치킨",
+    "category": "치킨",
+    "price": 20000,
+    "spicy": 0,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "바삭",
+      "맥주"
+    ]
+  },
+  {
+    "name": "양념치킨",
+    "category": "치킨",
+    "price": 21000,
+    "spicy": 2,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "달달",
+      "매콤"
+    ]
+  },
+  {
+    "name": "간장치킨",
+    "category": "치킨",
+    "price": 21000,
+    "spicy": 1,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "달달",
+      "맥주"
+    ]
+  },
+  {
+    "name": "마늘치킨",
+    "category": "치킨",
+    "price": 22000,
+    "spicy": 1,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "마늘",
+      "맥주"
+    ]
+  },
+  {
+    "name": "닭발",
+    "category": "안주",
+    "price": 18000,
+    "spicy": 5,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "매운",
+      "소주"
+    ]
+  },
+  {
+    "name": "무뼈닭발",
+    "category": "안주",
+    "price": 19000,
+    "spicy": 5,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "닭",
+      "매운",
+      "소주"
+    ]
+  },
+  {
+    "name": "오돌뼈",
+    "category": "안주",
+    "price": 18000,
+    "spicy": 4,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "매운",
+      "소주"
+    ]
+  },
+  {
+    "name": "곱창구이",
+    "category": "안주",
+    "price": 22000,
+    "spicy": 2,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "구이",
+      "소주"
+    ]
+  },
+  {
+    "name": "막창구이",
+    "category": "안주",
+    "price": 22000,
+    "spicy": 1,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "구이",
+      "소주"
+    ]
+  },
+  {
+    "name": "대창구이",
+    "category": "안주",
+    "price": 24000,
+    "spicy": 1,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "기름진",
+      "소주"
+    ]
+  },
+  {
+    "name": "곱창전골",
+    "category": "안주",
+    "price": 26000,
+    "spicy": 3,
+    "heavy": 5,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "국물",
+      "고기",
+      "소주"
+    ]
+  },
+  {
+    "name": "알탕",
+    "category": "안주",
+    "price": 22000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "해산물",
+      "국물",
+      "소주"
+    ]
+  },
+  {
+    "name": "동태탕",
+    "category": "안주",
+    "price": 20000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "생선",
+      "국물",
+      "소주"
+    ]
+  },
+  {
+    "name": "어묵탕",
+    "category": "안주",
+    "price": 16000,
+    "spicy": 1,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "국물",
+      "따뜻한",
+      "소주"
+    ]
+  },
+  {
+    "name": "번데기탕",
+    "category": "안주",
+    "price": 12000,
+    "spicy": 2,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "국물",
+      "짭짤",
+      "소주"
+    ]
+  },
+  {
+    "name": "골뱅이무침",
+    "category": "안주",
+    "price": 22000,
+    "spicy": 3,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "해산물",
+      "매콤",
+      "소주"
+    ]
+  },
+  {
+    "name": "해물파전",
+    "category": "안주",
+    "price": 18000,
+    "spicy": 1,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "해산물",
+      "전",
+      "막걸리"
+    ]
+  },
+  {
+    "name": "김치전",
+    "category": "안주",
+    "price": 14000,
+    "spicy": 2,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "전",
+      "매콤",
+      "막걸리"
+    ]
+  },
+  {
+    "name": "감자전",
+    "category": "안주",
+    "price": 14000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "전",
+      "감자",
+      "막걸리"
+    ]
+  },
+  {
+    "name": "두부김치",
+    "category": "안주",
+    "price": 18000,
+    "spicy": 3,
+    "heavy": 4,
+    "vegetarian": true,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "두부",
+      "김치",
+      "소주"
+    ]
+  },
+  {
+    "name": "계란말이",
+    "category": "안주",
+    "price": 14000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "계란",
+      "부드러운",
+      "소주"
+    ]
+  },
+  {
+    "name": "콘치즈",
+    "category": "안주",
+    "price": 10000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "간식",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "치즈",
+      "달달",
+      "맥주"
+    ]
+  },
+  {
+    "name": "먹태",
+    "category": "안주",
+    "price": 16000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "마른안주",
+      "바삭",
+      "맥주"
+    ]
+  },
+  {
+    "name": "노가리",
+    "category": "안주",
+    "price": 14000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "마른안주",
+      "짭짤",
+      "맥주"
+    ]
+  },
+  {
+    "name": "육포",
+    "category": "안주",
+    "price": 15000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": false,
+    "times": [
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "짭짤",
+      "맥주"
+    ]
+  },
+  {
+    "name": "치즈플래터",
+    "category": "안주",
+    "price": 22000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": true,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "치즈",
+      "와인",
+      "깔끔"
+    ]
+  },
+  {
+    "name": "하몽",
+    "category": "안주",
+    "price": 25000,
+    "spicy": 0,
+    "heavy": 3,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "고기",
+      "짭짤",
+      "와인"
+    ]
+  },
+  {
+    "name": "감바스",
+    "category": "안주",
+    "price": 18000,
+    "spicy": 1,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "새우",
+      "마늘",
+      "와인"
+    ]
+  },
+  {
+    "name": "카프레제",
+    "category": "안주",
+    "price": 16000,
+    "spicy": 0,
+    "heavy": 2,
+    "vegetarian": true,
+    "times": [
+      "저녁",
+      "안주"
+    ],
+    "tags": [
+      "치즈",
+      "토마토",
+      "와인"
+    ]
+  },
+  {
+    "name": "소시지구이",
+    "category": "안주",
+    "price": 18000,
+    "spicy": 0,
+    "heavy": 4,
+    "vegetarian": false,
+    "times": [
+      "저녁",
+      "야식",
+      "안주"
+    ],
+    "tags": [
+      "소시지",
+      "구이",
+      "맥주"
+    ]
+  }
+];
+
+    const state = {
+      queryWords: [],
+      mealTime: null,
+      budget: null,
+      spicy: null,
+      heavy: null,
+      vegetarian: false,
+      category: null,
+      tags: [],
+      excluded: [],
+      lastMenus: []
+    };
+
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("chatForm");
+    const input = document.getElementById("userInput");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const stopWords = new Set([
+      "추천", "추천해줘", "메뉴", "먹고", "싶어", "먹을까", "뭐", "어때",
+      "주세요", "줘", "골라줘", "아무거나", "음식", "요리", "좀", "오늘"
+    ]);
+
+    const synonymGroups = {
+      아침: ["아침", "모닝", "브렉퍼스트", "브런치", "출근"],
+      점심: ["점심", "런치", "낮"],
+      저녁: ["저녁", "디너", "퇴근"],
+      야식: ["야식", "밤", "새벽", "심야"],
+      간식: ["간식", "디저트", "출출", "군것질"],
+      안주: ["안주", "술", "술안주", "맥주", "소주", "와인", "막걸리"],
+      매운: ["매운", "맵게", "매콤", "얼큰", "칼칼", "얼얼", "화끈"],
+      순한: ["순한", "안매운", "안 맵", "담백"],
+      국물: ["국물", "탕", "찌개", "전골", "해장"],
+      고기: ["고기", "육류", "돼지", "소", "삼겹", "닭"],
+      해산물: ["해산물", "생선", "회", "새우", "오징어", "문어"],
+      면: ["면", "국수", "파스타", "라멘", "우동"],
+      밥: ["밥", "덮밥", "볶음밥", "국밥"],
+      빵: ["빵", "토스트", "샌드위치", "베이글"],
+      달달: ["달달", "달콤", "단거", "단 것"],
+      바삭: ["바삭", "튀김", "크리스피"],
+      건강: ["건강", "가벼운", "다이어트", "샐러드", "저칼로리"],
+      든든: ["든든", "푸짐", "배부르게", "보양"],
+      치즈: ["치즈", "크리미", "크림"],
+      커피: ["커피", "카페"],
+      맥주: ["맥주", "치맥"],
+      소주: ["소주", "소맥"],
+      와인: ["와인"],
+      막걸리: ["막걸리", "전"]
+    };
+
+    const categoryKeywords = {
+      한식: ["한식", "집밥", "한국"],
+      일식: ["일식", "일본", "돈가스", "초밥"],
+      중식: ["중식", "중국", "짜장", "짬뽕", "마라"],
+      양식: ["양식", "서양", "파스타", "피자"],
+      아시안: ["아시안", "베트남", "태국", "인도"],
+      분식: ["분식", "떡볶이", "김밥"],
+      디저트: ["디저트", "카페", "케이크"],
+      치킨: ["치킨", "닭"]
+    };
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, ch => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[ch]));
+    }
+
+    function addMessage(text, sender = "bot", html = false) {
+      const row = document.createElement("div");
+      row.className = `message-row ${sender}`;
+
+      const bubble = document.createElement("div");
+      bubble.className = `message ${sender}`;
+      html ? bubble.innerHTML = text : bubble.textContent = text;
+
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function showQuickReplies(items) {
+      const wrap = document.createElement("div");
+      wrap.className = "quick-replies";
+
+      items.forEach(label => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", () => {
+          const clean = label.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+          handleUserMessage(clean);
+          wrap.remove();
+        });
+        wrap.appendChild(button);
+      });
+
+      chat.appendChild(wrap);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function parseBudget(text) {
+      const tenThousand = text.match(/(\d+(?:\.\d+)?)\s*만\s*원?/);
+      if (tenThousand) return Math.round(parseFloat(tenThousand[1]) * 10000);
+
+      const won = text.match(/(\d{4,6})\s*원?/);
+      if (won) return parseInt(won[1], 10);
+
+      if (/만원\s*(이하|안|내)|1만\s*(이하|안|내)/.test(text)) return 10000;
+      if (/저렴|가성비|싸게/.test(text)) return 8000;
+      return null;
+    }
+
+    function findCanonicalWord(token) {
+      for (const [canonical, variants] of Object.entries(synonymGroups)) {
+        if (variants.some(variant => token.includes(variant) || variant.includes(token))) {
+          return canonical;
+        }
+      }
+      return token;
+    }
+
+    function tokenize(text) {
+      return text
+        .toLowerCase()
+        .replace(/[^가-힣a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .map(word => word.trim())
+        .filter(word => word.length > 0 && !stopWords.has(word));
+    }
+
+    function updatePreferences(text) {
+      const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+      const rawTokens = tokenize(normalized);
+      const canonicalTokens = [...new Set(rawTokens.map(findCanonicalWord))];
+
+      state.queryWords = canonicalTokens;
+      state.tags = [];
+
+      const budget = parseBudget(normalized);
+      if (budget) state.budget = budget;
+
+      for (const mealTime of ["아침", "점심", "저녁", "야식", "간식", "안주"]) {
+        const variants = synonymGroups[mealTime];
+        if (variants.some(word => normalized.includes(word))) {
+          state.mealTime = mealTime;
+          break;
+        }
+      }
+
+      for (const [category, words] of Object.entries(categoryKeywords)) {
+        if (words.some(word => normalized.includes(word))) {
+          state.category = category;
+          break;
+        }
+      }
+
+      if (/채식|비건|고기\s*없이/.test(normalized)) state.vegetarian = true;
+      if (/채식\s*아니|고기\s*좋|고기\s*먹/.test(normalized)) state.vegetarian = false;
+
+      if (/아주\s*맵|매운맛|불닭|마라|얼얼/.test(normalized)) state.spicy = 5;
+      else if (/매운|매콤|얼큰|칼칼/.test(normalized)) state.spicy = 4;
+      else if (/순한|안\s*맵|담백/.test(normalized)) state.spicy = 0;
+
+      if (/가볍|건강|다이어트|부담\s*없/.test(normalized)) state.heavy = 1;
+      else if (/든든|푸짐|배부르게|보양/.test(normalized)) state.heavy = 5;
+
+      const usefulTags = [
+        "국물", "고기", "해산물", "면", "밥", "빵", "달달", "바삭",
+        "건강", "든든", "치즈", "커피", "맥주", "소주", "와인", "막걸리"
+      ];
+
+      state.tags = usefulTags.filter(tag =>
+        synonymGroups[tag]?.some(word => normalized.includes(word))
+      );
+    }
+
+    function searchableText(menu) {
+      return [
+        menu.name,
+        menu.category,
+        ...menu.times,
+        ...menu.tags
+      ].join(" ").toLowerCase();
+    }
+
+    function scoreMenu(menu) {
+      let score = Math.random() * 1.2;
+      const haystack = searchableText(menu);
+
+      if (state.mealTime) {
+        score += menu.times.includes(state.mealTime) ? 8 : -4;
+      }
+
+      if (state.budget !== null) {
+        score += menu.price <= state.budget ? 5 : -10;
+        score += Math.max(0, 2 - Math.abs(state.budget - menu.price) / 7000);
+      }
+
+      if (state.category) {
+        score += menu.category === state.category ? 7 : -1;
+      }
+
+      if (state.spicy !== null) {
+        score += 5 - Math.abs(menu.spicy - state.spicy) * 1.4;
+      }
+
+      if (state.heavy !== null) {
+        score += 4 - Math.abs(menu.heavy - state.heavy);
+      }
+
+      if (state.vegetarian) {
+        score += menu.vegetarian ? 7 : -30;
+      }
+
+      state.tags.forEach(tag => {
+        const variants = synonymGroups[tag] || [tag];
+        if (variants.some(word => haystack.includes(word)) || haystack.includes(tag)) {
+          score += 5;
+        }
+      });
+
+      state.queryWords.forEach(word => {
+        const variants = synonymGroups[word] || [word];
+        const matched = variants.some(variant => haystack.includes(variant)) || haystack.includes(word);
+        if (matched) score += 6;
+
+        if (menu.name.toLowerCase().includes(word)) score += 9;
+      });
+
+      if (state.excluded.includes(menu.name)) score -= 50;
+      return score;
+    }
+
+    function recommend(count = 5) {
+      let candidates = menus.filter(menu => !state.excluded.includes(menu.name));
+
+      if (candidates.length < count) {
+        state.excluded = [];
+        candidates = [...menus];
+      }
+
+      const selected = candidates
+        .map(menu => ({ menu, score: scoreMenu(menu) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, count)
+        .map(item => item.menu);
+
+      state.lastMenus = selected;
+      return selected;
+    }
+
+    function preferenceSummary() {
+      const parts = [];
+
+      if (state.mealTime) parts.push(state.mealTime);
+      if (state.category) parts.push(state.category);
+      if (state.budget) parts.push(`${state.budget.toLocaleString()}원 이하`);
+      if (state.spicy === 5) parts.push("아주 매운맛");
+      else if (state.spicy === 4) parts.push("매운맛");
+      else if (state.spicy === 0) parts.push("순한맛");
+      if (state.heavy === 1) parts.push("가볍게");
+      else if (state.heavy === 5) parts.push("든든하게");
+      if (state.vegetarian) parts.push("채식");
+      parts.push(...state.tags);
+      parts.push(...state.queryWords.filter(word => !parts.includes(word)));
+
+      return [...new Set(parts)].length
+        ? [...new Set(parts)].join(" · ")
+        : "무작위 추천";
+    }
+
+    function renderRecommendation(recommendedMenus) {
+      const spicyLabels = ["안 매움", "순한 맛", "약간 매콤", "매콤", "매움", "아주 매움"];
+
+      const cards = recommendedMenus.map((menu, index) => `
+        <div class="menu-card">
+          <strong>${index + 1}. ${escapeHtml(menu.name)}</strong>
+          <div class="menu-meta">
+            ${escapeHtml(menu.category)} · 약 ${menu.price.toLocaleString()}원 ·
+            ${spicyLabels[menu.spicy]} · ${"●".repeat(menu.heavy)}${"○".repeat(5 - menu.heavy)}
+          </div>
+          <div class="tag-list">
+            ${menu.times.map(time => `<span class="tag">${escapeHtml(time)}</span>`).join("")}
+            ${menu.tags.slice(0, 4).map(tag => `<span class="tag">#${escapeHtml(tag)}</span>`).join("")}
+          </div>
+        </div>
+      `).join("");
+
+      const html = `
+        조건과 단어에 맞춰 5가지를 골랐어요.
+        <div class="menu-grid">${cards}</div>
+        <div class="matched">반영한 단어: ${escapeHtml(preferenceSummary())}</div>
+      `;
+
+      addMessage(html, "bot", true);
+      showQuickReplies(["✨ 다른 메뉴", "🌶️ 매운", "🍲 국물", "🥗 건강", "🍺 맥주", "🔄 초기화"]);
+    }
+
+    function resetState(showGreeting = true) {
+      state.queryWords = [];
+      state.mealTime = null;
+      state.budget = null;
+      state.spicy = null;
+      state.heavy = null;
+      state.vegetarian = false;
+      state.category = null;
+      state.tags = [];
+      state.excluded = [];
+      state.lastMenus = [];
+      chat.innerHTML = "";
+
+      if (showGreeting) {
+        addMessage(
+          "아침, 점심, 저녁, 야식, 간식, 안주까지 골라드려요.\n" +
+          "문장으로 쓰지 않아도 됩니다. “매운”, “국물”, “맥주”, “달달”처럼 단어만 입력해 보세요."
+        );
+        showQuickReplies(["🌅 아침", "☀️ 점심", "🌆 저녁", "🌙 야식", "🍰 간식", "🍺 안주"]);
+      }
+    }
+
+    function handleUserMessage(rawText) {
+      const text = rawText.trim();
+      if (!text) return;
+
+      addMessage(text, "user");
+      input.value = "";
+
+      if (/^(처음부터|초기화|조건 초기화|리셋)/.test(text)) {
+        resetState(false);
+        addMessage("조건을 초기화했어요. 단어 하나만 입력해도 추천해 드릴게요.");
+        showQuickReplies(["🌅 아침", "☀️ 점심", "🌆 저녁", "🌙 야식", "🍰 간식", "🍺 안주"]);
+        return;
+      }
+
+      if (/다른|또|다시|별로/.test(text)) {
+        state.lastMenus.forEach(menu => {
+          if (!state.excluded.includes(menu.name)) state.excluded.push(menu.name);
+        });
+        renderRecommendation(recommend(5));
+        return;
+      }
+
+      if (/고마|좋아|오케이|먹을게/.test(text)) {
+        addMessage("좋아요! 맛있게 드세요 😋");
+        return;
+      }
+
+      updatePreferences(text);
+      renderRecommendation(recommend(5));
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      handleUserMessage(input.value);
+    });
+
+    resetBtn.addEventListener("click", () => resetState(true));
+
+    document.querySelectorAll(".meal-tabs button").forEach(button => {
+      button.addEventListener("click", () => handleUserMessage(button.dataset.word));
+    });
+
+    resetState(true);
+  </script>
+</body>
+</html>
